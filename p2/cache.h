@@ -16,32 +16,42 @@ typedef unsigned char uchar;
 typedef unsigned int uint;
 
 /****add new states, based on the protocol****/
-enum{
+/*enum{
 	INVALID = 0,
 	VALID,
 	DIRTY
+};*/
+
+enum STATE {
+   EXCLUSIVE = 0,
+   SHARED_CLEAN,
+   SHARED_MODIFIED,
+   MODIFIED,
+   VALID,
+   DIRTY,
+   SHARED
 };
 
-class cacheLine 
+class cacheLine
 {
 protected:
    ulong tag;
-   ulong Flags;   // 0:invalid, 1:valid, 2:dirty 
-   ulong seq; 
-   ulong State; // 0:Exclusive, 1: Modified, 2: Shared Clean/Shared, 3: Shared Modified
- 
+   //ulong Flags;   // 0:invalid, 1:valid, 2:dirty
+   ulong seq;
+   STATE State; // 0:Exclusive, 1: Modified, 2: Shared Clean/Shared, 3: Shared Modified
+
 public:
-   cacheLine()            { tag = 0; Flags = 0; }
+   cacheLine()            { tag = 0; /*Flags = 0;*/ }
    ulong getTag()         { return tag; }
-   ulong getFlags()			{ return Flags;}
+   //ulong getFlags()			{ return Flags;}
    ulong getState()     { return State;}
    ulong getSeq()         { return seq; }
    void setSeq(ulong Seq)			{ seq = Seq;}
-   void setFlags(ulong flags)			{  Flags = flags;}
-   void setState(ulong state)     { State = state;}
+   //void setFlags(ulong flags)			{  Flags = flags;}
+   void setState(STATE state)     { State = state;}
    void setTag(ulong a)   { tag = a; }
-   void invalidate()      { tag = 0; Flags = INVALID; }//useful function
-   bool isValid()         { return ((Flags) != INVALID); }
+   //void invalidate()      { tag = 0; Flags = INVALID; }//useful function
+   //bool isValid()         { return ((Flags) != INVALID); }
 };
 
 class Cache
@@ -60,34 +70,36 @@ protected:
    ulong calcTag(ulong addr)     { return (addr >> (log2Blk) );}
    ulong calcIndex(ulong addr)  { return ((addr >> log2Blk) & tagMask);}
    ulong calcAddr4Tag(ulong tag)   { return (tag << (log2Blk));}
-   
+
 public:
-    ulong currentCycle;  
-     
+    ulong currentCycle;
+
     Cache();
     Cache(int,int,int);
    ~Cache() { delete cache;}
-   
+
    cacheLine *findLineToReplace(ulong addr);
    cacheLine *fillLine(ulong addr);
    cacheLine * findLine(ulong addr);
    cacheLine * getLRU(ulong);
-   
-   ulong getRM(){return readMisses;} ulong getWM(){return writeMisses;} 
+
+   ulong getRM(){return readMisses;} ulong getWM(){return writeMisses;}
    ulong getReads(){return reads;}ulong getWrites(){return writes;}
    ulong getWB(){return writeBacks;}
-   
+
    void Setup(int,int,int,int,int);
    void writeBack(ulong)   {writeBacks++;}
    void Access(ulong,uchar,Cache*,int);
+   void DragonAccess(ulong,uchar,Cache*,int);
    void printStats();
    void updateLRU(cacheLine *);
    void changeState(cacheLine*);
-   cacheLine* readMissDragon(Cache*,ulong,int);
+
+   cacheLine* PrWr(Cache*,cacheLine*,ulong,int);
+   cacheLine* PrRdMiss(Cache*,ulong,int);
+   cacheLine* PrWrMiss(Cache*,ulong,int);
    cacheLine* BusRd(Cache*,ulong,int);
-   cacheLine* writeMissDragon(Cache*,ulong,int);
    cacheLine* BusUpd(Cache*,ulong,int);
-   cacheLine* writeHitDragon(Cache*,cacheLine*,ulong,int);
 
    //******///
    //add other functions to handle bus transactions///
