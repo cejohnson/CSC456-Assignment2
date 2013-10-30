@@ -83,7 +83,6 @@ int main(int argc, char *argv[])
 	
 
 	fclose(pFile);
-	delete[] cachesArray;
 
 	//********************************//
 	//print out all caches' statistics //
@@ -93,5 +92,6 @@ int main(int argc, char *argv[])
 		printf("===== Simulation results (Cache_%i)      =====\n", i);
 		cachesArray[i].printStats();
 	}
-	
+
+	delete[] cachesArray;
 }
