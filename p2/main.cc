@@ -13,9 +13,7 @@ using namespace std;
 
 #include "cache.h"
 
-int main(int argc, char *argv[])
-{
-	
+int main(int argc, char *argv[]){
 	ifstream fin;
 	FILE * pFile;
 
@@ -36,10 +34,10 @@ int main(int argc, char *argv[])
 		pname = strcpy(pname, "Firefly");
 	else
 		pname = strcpy(pname, "Dragon");
-	char *fname =  (char *)malloc(20);
+	char *fname = (char *)malloc(20);
  	fname = argv[6];
 
-	
+
 	//****************************************************//
 	printf("===== Simulator Configuration =====\n");
 	//*******print out simulator configuration here*******//
@@ -51,18 +49,18 @@ int main(int argc, char *argv[])
 	printf("%-23s%s\n", "TRACE FILE:", fname);
 	//****************************************************//
 
- 
+
 	//*********************************************//
         //*****create an array of caches here**********//
 	Cache* cachesArray = new Cache[num_processors];// = new Cache[num_processors];
 	for (int i = 0; i < num_processors; i++) {
 		cachesArray[i].Setup(cache_size, cache_assoc, blk_size, protocol, num_processors);
 	}
-	//*********************************************//	
+	//*********************************************//
 
 	pFile = fopen (fname,"r");
 	if(pFile == 0)
-	{   
+	{
 		printf("Trace file problem\n");
 		exit(0);
 	}
@@ -71,7 +69,7 @@ int main(int argc, char *argv[])
 	//*****propagate each request down through memory hierarchy**********//
 	//*****by calling cachesArray[processor#]->Access(...)***************//
 	///******************************************************************//
-	
+
 	/* Provided by Dr. Gehringer to do some I/O */
 	int processor_number;
 	uchar op;
@@ -80,7 +78,7 @@ int main(int argc, char *argv[])
 	while (fscanf(pFile, "%i %c %lx", &processor_number, &op, &address) == 3) {
 		cachesArray[processor_number].Access(address, op, cachesArray, processor_number);
 	}
-	
+
 
 	fclose(pFile);
 
@@ -94,4 +92,5 @@ int main(int argc, char *argv[])
 	}
 
 	delete[] cachesArray;
+	free(pname);
 }

@@ -99,44 +99,23 @@ Cache::Cache(int s,int a,int b )
 /**you might add other parameters to Access()
 since this function is an entry point
 to the memory hierarchy (i.e. caches)**/
-void Cache::Access(ulong addr, uchar op, Cache* cachesArray, int processor_number)
-{
-	currentCycle++;/*per cache global counter to maintain LRU order
+void Cache::Access(ulong addr, uchar op, Cache* cachesArray, int processor_number) {
+   currentCycle++;/*per cache global counter to maintain LRU order
          among cache ways, updated on every cache access*/
 
    if(op == 'w') writes++;
    else          reads++;
 
    cacheLine * line = findLine(addr);
-   if(line == NULL)/*miss*/
-   {
+   if(line == NULL) {/*miss*/
       if(op == 'w') { //write miss
          writeMisses++;
          PrWrMiss(cachesArray, addr, processor_number);
-      }
-      /*
-      Protocol specific function call
-      call writeMissFirefly or writeMissDragon
-      Potentially only differentiate when they are different
-      */
-
-      /*
-      Before or after you process CPU actions,
-      process other processors' bus actions
-      BusRd & BusUpd methods for bus
-      RdMiss, RdHit, WrMiss, WrHit, methods for processors
-      */
-      else { //read miss
+      } else { //read miss
          readMisses++;
          line = PrRdMiss(cachesArray, addr, processor_number);
       }
-
-      //cacheLine *newline = fillLine(addr);
-         //if(op == 'w') newline->setFlags(DIRTY);
-
-   }
-   else
-   {
+   } else { //in cache
       /**since it's a hit, update LRU and update dirty flag**/
       if(op == 'w') { //write hit
          PrWr(cachesArray, line, addr, processor_number);
@@ -145,8 +124,6 @@ void Cache::Access(ulong addr, uchar op, Cache* cachesArray, int processor_numbe
       }
       updateLRU(line);
    }
-   //printf("Cycle %lu\n", currentCycle);
-   //printStats();
 }
 
 cacheLine* Cache::PrRdMiss(Cache* cachesArray, ulong addr, int processor_number) {
@@ -154,26 +131,16 @@ cacheLine* Cache::PrRdMiss(Cache* cachesArray, ulong addr, int processor_number)
    cacheLine *sharedLine = BusRd(cachesArray, addr, processor_number);
    cacheLine *newLine = fillLine(addr);
 
-   if (protocol == 0) {
-      if (sharedLine) {
-
-//CMB
-         ulong state = sharedLine->getState();
-         if (state == DIRTY) {
-//            writeBacks++;
-            memoryTransactions++;
-         }
-//CMB end
-
+   if (protocol == 0) { //Firefly
+      if (sharedLine) { //in other cache
          newLine->setState(SHARED);
-         sharedLine->setState(SHARED);
          cacheToCacheTransfers++;
-      } else {
+      } else { //not in any cache
          newLine->setState(VALID);
          memoryTransactions++;
       }
    }
-   else {
+   else { //Dragon
       if (sharedLine) {
          newLine->setState(SHARED_CLEAN);
          cacheToCacheTransfers++;
@@ -190,26 +157,22 @@ cacheLine* Cache::PrWrMiss(Cache* cachesArray, ulong addr, int processor_number)
    cacheLine *sharedLine = BusRd(cachesArray, addr, processor_number);
    cacheLine *newLine = fillLine(addr);
 
-   if (protocol == 0) {
-      if (sharedLine) {
+   if (protocol == 0) { //Firefly
+      if (sharedLine) { //in other cache
          newLine->setState(SHARED);
- sharedLine->setState(SHARED);
          cacheToCacheTransfers++;
-         if (BusUpd(cachesArray, addr, processor_number) != NULL) {
-            memoryTransactions++;
-         }
-      } else {
-         newLine->setState(DIRTY);
          memoryTransactions++;
+      } else { //not in any cache
+         newLine->setState(DIRTY);
       }
    }
-   else {
-      if (sharedLine) {
+   else { //Dragon
+      if (sharedLine) { //another cache has it
          newLine->setState(SHARED_MODIFIED);
          cacheToCacheTransfers++;
          BusUpd(cachesArray, addr, processor_number);
       }
-      else {
+      else { //no cache has it
          newLine->setState(MODIFIED);
          memoryTransactions++;
       }
@@ -223,13 +186,13 @@ cacheLine* Cache::PrWr(Cache* cachesArray, cacheLine *line, ulong addr, int proc
       if (state == VALID) {
          line->setState(DIRTY);
       } else if (state == SHARED) {
+         //Update all copies, write to memory, if only copy, set Valid
          cacheLine *sharedLine = BusUpd(cachesArray, addr, processor_number);
          if (sharedLine == NULL) {
             line->setState(VALID);
-         } else {
-sharedLine->setState(SHARED);
-            memoryTransactions++;
          }
+
+         memoryTransactions++;
       } else if (state == DIRTY) {
          //Update cache, no change state
       } else {
@@ -269,26 +232,23 @@ cacheLine* Cache::BusRd(Cache* cachesArray, ulong addr, int processor_number) {
       line = cachesArray[i].findLine(addr);
       if (line != NULL) { // Update state based on
 
-//CMB BusRd should only check for cache at other CPU
-//         if (protocol == 0) {
-//CMB
-//            ulong state = line->getState();
-//            if (state == DIRTY) {
-//               writeBacks++;
-//            }
-//CMB end
-//
-//            line->setState(SHARED);
-//         }
-//         else {
-//            ulong state = line->getState();
-//            if (state == EXCLUSIVE)
-//               line->setState(SHARED_CLEAN);
-//            if (state == MODIFIED)
-//               line->setState(SHARED_MODIFIED);
-//         }
+         if (protocol == 0) {
+           ulong state = line->getState();
+           if (state == DIRTY || state == VALID) {
+             line->setState(SHARED);
+           }
+         }
+         else {
+            ulong state = line->getState();
+            if (state == MODIFIED) {
+               line->setState(SHARED_MODIFIED);
+            }
+         }
          foundLine = line;
       }
+
+      //Skip the processor who started the BusRd
+      if (i+1 == processor_number) i++;
    }
 
    return foundLine;
@@ -301,15 +261,17 @@ cacheLine* Cache::BusUpd(Cache* cachesArray, ulong addr, int processor_number) {
       line = cachesArray[i].findLine(addr);
       if (line != NULL) {
         if (protocol == 0) {
-            line->setState(SHARED);
-         }
-         else {
+        } else {
             ulong state = line->getState();
-            if (state == SHARED_MODIFIED)
+            if (state == SHARED_MODIFIED) {
                line->setState(SHARED_CLEAN);
+            }
          }
          foundLine = line;
       }
+
+      //Skip the processor who started the BusRd
+      if (i+1 == processor_number) i++;
    }
    return foundLine;
 }
@@ -381,13 +343,20 @@ cacheLine *Cache::fillLine(ulong addr)
    cacheLine *victim = findLineToReplace(addr);
    assert(victim != 0);
    if (protocol == 0) {
-      if (victim->getState() == DIRTY) writeBacks++;
-   }
-   else {
-      if(victim->getState() == MODIFIED || victim->getState() == SHARED_MODIFIED) {
-         writeBack(addr);
+      if (victim->getState() == DIRTY) {
+         writeBacks++;
          memoryTransactions++;
       }
+   }
+   else {
+      if(victim->getState() == MODIFIED) {
+         writeBacks++;
+         memoryTransactions++;
+      } else if (victim->getState() == SHARED_MODIFIED) {
+//         writeBacks++;
+//         memoryTransactions++;
+      }
+
    }
    tag = calcTag(addr);
    victim->setTag(tag);
