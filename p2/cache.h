@@ -88,7 +88,7 @@ public:
    ulong getWB(){return writeBacks;}
 
    void Setup(int,int,int,int,int);
-   void writeBack(ulong)   {writeBacks++;}
+   void writeBack(ulong)   {writeBacks++;memoryTransactions++;}
    void Access(ulong,uchar,Cache*,int);
    void DragonAccess(ulong,uchar,Cache*,int);
    void printStats();

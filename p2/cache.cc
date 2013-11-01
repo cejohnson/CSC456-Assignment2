@@ -45,7 +45,7 @@ void Cache::Setup(int s,int a,int b,int proto, int processors)
         tagMask |= 1;
    }
 
-   /**create a two dimentional cache, sized as cache[sets][assoc]**/
+   /**create a two dimensional cache, sized as cache[sets][assoc]**/
    cache = new cacheLine*[sets];
    for(i=0; i<sets; i++)
    {
@@ -154,19 +154,25 @@ cacheLine* Cache::PrRdMiss(Cache* cachesArray, ulong addr, int processor_number)
 }
 
 cacheLine* Cache::PrWrMiss(Cache* cachesArray, ulong addr, int processor_number) {
-   cacheLine *sharedLine = BusRd(cachesArray, addr, processor_number);
-   cacheLine *newLine = fillLine(addr);
+   //cacheLine *sharedLine = BusRd(cachesArray, addr, processor_number);
+   //cacheLine *newLine = fillLine(addr);
+   cacheLine *newLine = NULL;
 
    if (protocol == 0) { //Firefly
-      if (sharedLine) { //in other cache
+      /*if (sharedLine) { //in other cache
          newLine->setState(SHARED);
          cacheToCacheTransfers++;
          memoryTransactions++;
       } else { //not in any cache
          newLine->setState(DIRTY);
-      }
+         memoryTransactions++;
+      }*/
+      newLine = PrRdMiss(cachesArray, addr, processor_number);
+      PrWr(cachesArray, newLine, addr, processor_number);
    }
    else { //Dragon
+      cacheLine *sharedLine = BusRd(cachesArray, addr, processor_number);
+      cacheLine *newLine = fillLine(addr);
       if (sharedLine) { //another cache has it
          newLine->setState(SHARED_MODIFIED);
          cacheToCacheTransfers++;
@@ -234,8 +240,11 @@ cacheLine* Cache::BusRd(Cache* cachesArray, ulong addr, int processor_number) {
 
          if (protocol == 0) {
            ulong state = line->getState();
-           if (state == DIRTY || state == VALID) {
+           if (state == VALID) {
              line->setState(SHARED);
+           } else if (state == DIRTY) {
+             line->setState(SHARED);
+             memoryTransactions++; // Update main memory
            }
          }
          else {
@@ -261,6 +270,7 @@ cacheLine* Cache::BusUpd(Cache* cachesArray, ulong addr, int processor_number) {
       line = cachesArray[i].findLine(addr);
       if (line != NULL) {
         if (protocol == 0) {
+           line->setState(SHARED);
         } else {
             ulong state = line->getState();
             if (state == SHARED_MODIFIED) {
@@ -353,8 +363,8 @@ cacheLine *Cache::fillLine(ulong addr)
          writeBacks++;
          memoryTransactions++;
       } else if (victim->getState() == SHARED_MODIFIED) {
-//         writeBacks++;
-//         memoryTransactions++;
+         writeBacks++;
+         memoryTransactions++;
       }
 
    }
@@ -373,7 +383,7 @@ void Cache::printStats()
 	/****print out the rest of statistics here.****/
 	/****follow the ouput file format**************/
    double missRate = (double)(readMisses + writeMisses) / (reads + writes);
-   //printf("%50s%lf\n", "05. total miss rate:", missRate);
+
    printf("%-50s%lu\n", "01. number of reads:", reads);
    printf("%-50s%lu\n", "02. number of read misses:", readMisses);
    printf("%-50s%lu\n", "03. number of writes:", writes);
