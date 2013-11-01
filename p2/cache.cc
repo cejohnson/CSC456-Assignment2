@@ -235,6 +235,12 @@ cacheLine* Cache::BusRd(Cache* cachesArray, ulong addr, int processor_number) {
    cacheLine *line = NULL; // Temp variable
    cacheLine *foundLine = NULL; // Found line
    for (int i = 0; i < num_processors; i++) {
+    if (i == processor_number) {
+      if ((++i) == num_processors) continue;
+    }
+
+
+
       line = cachesArray[i].findLine(addr);
       if (line != NULL) { // Update state based on
 
@@ -257,7 +263,7 @@ cacheLine* Cache::BusRd(Cache* cachesArray, ulong addr, int processor_number) {
       }
 
       //Skip the processor who started the BusRd
-      if (i+1 == processor_number) i++;
+//      if (i+1 == processor_number) i++;
    }
 
    return foundLine;
@@ -267,6 +273,12 @@ cacheLine* Cache::BusUpd(Cache* cachesArray, ulong addr, int processor_number) {
    cacheLine *line = NULL;
    cacheLine *foundLine = NULL;
    for (int i = 0; i < num_processors; i++) {
+    if (i == processor_number) {
+      if ((++i) == num_processors) continue;
+    }
+
+
+
       line = cachesArray[i].findLine(addr);
       if (line != NULL) {
         if (protocol == 0) {
@@ -281,7 +293,7 @@ cacheLine* Cache::BusUpd(Cache* cachesArray, ulong addr, int processor_number) {
       }
 
       //Skip the processor who started the BusRd
-      if (i+1 == processor_number) i++;
+//      if (i+1 == processor_number) i++;
    }
    return foundLine;
 }
