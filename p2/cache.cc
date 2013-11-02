@@ -113,7 +113,7 @@ void Cache::Access(ulong addr, uchar op, Cache* cachesArray, int processor_numbe
          PrWrMiss(cachesArray, addr, processor_number);
       } else { //read miss
          readMisses++;
-         line = PrRdMiss(cachesArray, addr, processor_number);
+         PrRdMiss(cachesArray, addr, processor_number);
       }
    } else { //in cache
       /**since it's a hit, update LRU and update dirty flag**/
@@ -257,6 +257,8 @@ cacheLine* Cache::BusRd(Cache* cachesArray, ulong addr, int processor_number) {
             ulong state = line->getState();
             if (state == MODIFIED) {
                line->setState(SHARED_MODIFIED);
+            } else if (state == EXCLUSIVE) {
+               line->setState(SHARED_CLEAN);
             }
          }
          foundLine = line;
